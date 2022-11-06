@@ -3,7 +3,6 @@ package handlers
 import (
 	"encoding/json"
 	"net/http"
-	"os"
 	"strconv"
 	cartdto "waysfood/dto/cart"
 	dto "waysfood/dto/result"
@@ -171,10 +170,6 @@ func (h *handlerCart) FindbyIDCart(w http.ResponseWriter, r *http.Request) {
 		response := dto.ErrorResult{Code: http.StatusBadRequest, Message: err.Error()}
 		json.NewEncoder(w).Encode(response)
 		return
-	}
-	for i, p := range cart.Order {
-		imagePath := os.Getenv("PATH_FILE") + p.Product.Image
-		cart.Order[i].Product.Image = imagePath
 	}
 
 	w.WriteHeader(http.StatusOK)
