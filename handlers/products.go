@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"os"
 	"strconv"
@@ -13,6 +14,11 @@ import (
 	"github.com/go-playground/validator/v10"
 	"github.com/golang-jwt/jwt/v4"
 	"github.com/gorilla/mux"
+
+	"context"
+
+	"github.com/cloudinary/cloudinary-go/v2"
+	"github.com/cloudinary/cloudinary-go/v2/api/uploader"
 )
 
 type handlerProduct struct {
@@ -69,7 +75,7 @@ func (h *handlerProduct) CreateProduct(w http.ResponseWriter, r *http.Request) {
 	userId := int(userInfo["id"].(float64))
 
 	dataContex := r.Context().Value("dataFile") // add this code
-	filename := dataContex.(string)             // add this code
+	filepath := dataContex.(string)             // add this code
 
 	price, _ := strconv.Atoi(r.FormValue("price"))
 
@@ -87,9 +93,24 @@ func (h *handlerProduct) CreateProduct(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	var ctx = context.Background()
+	var CLOUD_NAME = os.Getenv("CLOUD_NAME")
+	var API_KEY = os.Getenv("API_KEY")
+	var API_SECRET = os.Getenv("API_SECRET")
+
+	// Add your Cloudinary credentials ...
+	cld, _ := cloudinary.NewFromParams(CLOUD_NAME, API_KEY, API_SECRET)
+
+	// Upload file to Cloudinary ...
+	resp, err := cld.Upload.Upload(ctx, filepath, uploader.UploadParams{Folder: "dumbmerch"})
+
+	if err != nil {
+		fmt.Println(err.Error())
+	}
+
 	product := models.Product{
 		Title:  request.Title,
-		Image:  filename,
+		Image:  resp.SecureURL,
 		Price:  request.Price,
 		UserID: userId,
 	}
