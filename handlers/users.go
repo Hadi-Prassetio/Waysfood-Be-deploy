@@ -36,11 +36,6 @@ func (h *handlerUser) FindUsers(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	for i, p := range users {
-		imagePath := os.Getenv("PATH_FILE") + p.Image
-		users[i].Image = imagePath
-	}
-
 	w.WriteHeader(http.StatusOK)
 	response := dto.SuccessResult{Code: http.StatusOK, Data: users}
 	json.NewEncoder(w).Encode(response)
@@ -55,10 +50,6 @@ func (h *handlerUser) FindPartners(w http.ResponseWriter, r *http.Request) {
 		response := dto.ErrorResult{Code: http.StatusBadRequest, Message: err.Error()}
 		json.NewEncoder(w).Encode(response)
 		return
-	}
-	for i, p := range users {
-		imagePath := os.Getenv("PATH_FILE") + p.Image
-		users[i].Image = imagePath
 	}
 
 	w.WriteHeader(http.StatusOK)
@@ -77,13 +68,6 @@ func (h *handlerUser) GetUser(w http.ResponseWriter, r *http.Request) {
 		response := dto.ErrorResult{Code: http.StatusBadRequest, Message: err.Error()}
 		json.NewEncoder(w).Encode(response)
 		return
-	}
-
-	user.Image = os.Getenv("PATH_FILE") + user.Image
-
-	for i, p := range user.Products {
-		imagePath := os.Getenv("PATH_FILE") + p.Image
-		user.Products[i].Image = imagePath
 	}
 
 	w.WriteHeader(http.StatusOK)
