@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -11,6 +12,8 @@ import (
 	transactiondto "waysfood/dto/transaction"
 	"waysfood/models"
 	"waysfood/repositories"
+
+	"gopkg.in/gomail.v2"
 
 	"github.com/golang-jwt/jwt/v4"
 	"github.com/midtrans/midtrans-go"
@@ -172,6 +175,12 @@ func (h *handlerTransaction) Notification(w http.ResponseWriter, r *http.Request
 	fraudStatus := notificationPayload["fraud_status"].(string)
 	orderId := notificationPayload["order_id"].(string)
 
+	fmt.Println("INI MASUK NOTIFIKASI STATUS :", transactionStatus)
+	fmt.Println("INI MASUK NOTIFIKASI FRAUD STATUS :", fraudStatus)
+	fmt.Println("INI MASUK NOTIFIKASI FRAUD ORDERID :", orderId)
+
+	transaction, _ := h.TransactionRepository.GetOneTransaction(orderId)
+
 	if transactionStatus == "capture" {
 		if fraudStatus == "challenge" {
 			// TODO set transaction status on your database to 'challenge'
@@ -179,17 +188,21 @@ func (h *handlerTransaction) Notification(w http.ResponseWriter, r *http.Request
 			h.TransactionRepository.UpdateTransaction("pending", orderId)
 		} else if fraudStatus == "accept" {
 			// TODO set transaction status on your database to 'success'
+			SendMail("success", transaction)
 			h.TransactionRepository.UpdateTransaction("success", orderId)
 		}
 	} else if transactionStatus == "settlement" {
 		// TODO set transaction status on your databaase to 'success'
+		SendMail("success", transaction)
 		h.TransactionRepository.UpdateTransaction("success", orderId)
 	} else if transactionStatus == "deny" {
 		// TODO you can ignore 'deny', because most of the time it allows payment retries
 		// and later can become success
+		SendMail("failed", transaction)
 		h.TransactionRepository.UpdateTransaction("failed", orderId)
 	} else if transactionStatus == "cancel" || transactionStatus == "expire" {
 		// TODO set transaction status on your databaase to 'failure'
+		SendMail("failed", transaction)
 		h.TransactionRepository.UpdateTransaction("failed", orderId)
 	} else if transactionStatus == "pending" {
 		// TODO set transaction status on your databaase to 'pending' / waiting payment
@@ -199,69 +212,58 @@ func (h *handlerTransaction) Notification(w http.ResponseWriter, r *http.Request
 	w.WriteHeader(http.StatusOK)
 }
 
-// func SendMail(status string, transaction models.Transaction) {
+func SendMail(status string, transaction models.Transaction) {
 
-// 	if status != transaction.Status {
-// 		var CONFIG_SMTP_HOST = "smtp.gmail.com"
-// 		var CONFIG_SMTP_PORT = 587
-// 		var CONFIG_SENDER_NAME = "DumbMerch <demo.dumbways@gmail.com>"
-// 		var CONFIG_AUTH_EMAIL = os.Getenv("EMAIL_SYSTEM")
-// 		var CONFIG_AUTH_PASSWORD = os.Getenv("PASSWORD_SYSTEM")
+	if status != transaction.Status {
+		var CONFIG_SMTP_HOST = "smtp.gmail.com"
+		var CONFIG_SMTP_PORT = 587
+		var CONFIG_SENDER_NAME = "waysfood <hadiprassetio516@gmail.com>"
+		var CONFIG_AUTH_EMAIL = os.Getenv("EMAIL_SYSTEM")
+		var CONFIG_AUTH_PASSWORD = os.Getenv("PASSWORD_SYSTEM")
 
-// 		var productName = transaction.Cart
-// 		var price = strconv.Itoa(transaction.Total)
+		var productName = transaction.Seller.Fullname
+		var price = strconv.Itoa(transaction.Total)
 
-// 		mailer := gomail.NewMessage()
-// 		mailer.SetHeader("From", CONFIG_SENDER_NAME)
-// 		mailer.SetHeader("To", transaction.Buyer.Email)
-// 		mailer.SetHeader("Subject", "Transaction Status")
-// 		mailer.SetBody("text/html", fmt.Sprintf(`<!DOCTYPE html>
-//     <html lang="en">
-//       <head>
-//       <meta charset="UTF-8" />
-//       <meta http-equiv="X-UA-Compatible" content="IE=edge" />
-//       <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-//       <title>Document</title>
-//       <style>
-//         h1 {
-//         color: brown;
-//         }
-//       </style>
-//       </head>
-//       <body>
-//       <h2>Product payment :</h2>
-//       <ul style="list-style-type:none;">
-//         <li>Name : %s</li>
-//         <li>Total payment: Rp.%s</li>
-//         <li>Status : <b>%s</b></li>
-// 		<li>Note : Dika Uye</li>
-//       </ul>
-//       </body>
-//     </html>`, productName, price, status))
+		mailer := gomail.NewMessage()
+		mailer.SetHeader("From", CONFIG_SENDER_NAME)
+		mailer.SetHeader("To", transaction.Buyer.Email)
+		mailer.SetHeader("Subject", "Transaction Status")
+		mailer.SetBody("text/html", fmt.Sprintf(`<!DOCTYPE html>
+    <html lang="en">
+      <head>
+      <meta charset="UTF-8" />
+      <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+      <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+      <title>Document</title>
+      <style>
+        h1 {
+        color: brown;
+        }
+      </style>
+      </head>
+      <body>
+      <h2>Product payment :</h2>
+      <ul style="list-style-type:none;">
+        <li>Name : %s</li>
+        <li>Total payment: Rp.%s</li>
+        <li>Status : <b>%s</b></li>
+		<li>Note : Thanks for Buying</li>
+      </ul>
+      </body>
+    </html>`, productName, price, status))
 
-// 		dialer := gomail.NewDialer(
-// 			CONFIG_SMTP_HOST,
-// 			CONFIG_SMTP_PORT,
-// 			CONFIG_AUTH_EMAIL,
-// 			CONFIG_AUTH_PASSWORD,
-// 		)
+		dialer := gomail.NewDialer(
+			CONFIG_SMTP_HOST,
+			CONFIG_SMTP_PORT,
+			CONFIG_AUTH_EMAIL,
+			CONFIG_AUTH_PASSWORD,
+		)
 
-// 		err := dialer.DialAndSend(mailer)
-// 		if err != nil {
-// 			log.Fatal(err.Error())
-// 		}
+		err := dialer.DialAndSend(mailer)
+		if err != nil {
+			log.Fatal(err.Error())
+		}
 
-// 		log.Println("Mail sent! to " + transaction.Buyer.Email)
-// 	}
-// }
-
-// func convertResponseTransaction(t models.Transaction) transactiondto.ResponseTransaction {
-// 	return transactiondto.ResponseTransaction{
-// 		ID:     t.ID,
-// 		Cart:   append(t.Cart.Order[], ),
-// 		Buyer:  t.Buyer.Fullname,
-// 		Seller: t.Seller.Fullname,
-// 		Total:  t.Total,
-// 		Status: t.Status,
-// 	}
-// }
+		log.Println("Mail sent! to " + transaction.Buyer.Email)
+	}
+}
